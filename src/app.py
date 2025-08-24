@@ -12,12 +12,18 @@ load_dotenv()
 
 # ---- Config via env ----
 PROVIDER = os.getenv("PROVIDER", "ollama")  # "ollama" | "openai"
-MODEL_NAME = os.getenv(
-    "MODEL_NAME",
-    "llama3.1:8b" if PROVIDER == "ollama" else "gpt-4o-mini"
+MODEL_NAME = os.getenv("MODEL_NAME", "llama3.1:8b" if PROVIDER == "ollama" else "gpt-4o-mini")
+
+# 🔑 Default system prompt (can override in request or via env)
+DEFAULT_SYSTEM_PROMPT = os.getenv(
+    "SYSTEM_PROMPT",
+    "You are an expert ML systems engineer. "
+    "Always interpret 'RAG' as Retrieval-Augmented Generation in the context of LLMs, "
+    "not Red-Amber-Green project tracking. "
+    "Keep answers concise, accurate, and technical."
 )
 
-# Lazy import OpenAI only if used
+# Lazy import OpenAI client only if needed
 openai_client = None
 if PROVIDER == "openai":
     try:
@@ -26,18 +32,17 @@ if PROVIDER == "openai":
     except Exception as e:
         raise RuntimeError("OpenAI provider selected but setup failed") from e
 
-app = FastAPI(title="Mini LLM Platform", version="0.1.0")
+app = FastAPI(title="Mini LLM Platform", version="0.2.0")
 
 class GenerateRequest(BaseModel):
     prompt: str
     max_tokens: int = 256
     temperature: float = 0.7
     top_p: float = 0.9
-    system: Optional[str] = None  # optional system prompt for OpenAI
+    system: Optional[str] = None  # override system prompt
 
 @app.get("/health")
 async def health():
-    # Simple provider-specific health check
     if PROVIDER == "ollama":
         try:
             async with httpx.AsyncClient() as client:
@@ -54,11 +59,15 @@ async def health():
 
 @app.post("/generate")
 async def generate(req: GenerateRequest):
+    # Resolve system prompt (env default → request override)
+    system_prompt = req.system or DEFAULT_SYSTEM_PROMPT
+
     try:
         if PROVIDER == "ollama":
             payload = {
                 "model": MODEL_NAME,
-                "prompt": req.prompt,
+                # Concatenate system + user prompt (Ollama doesn’t have chat roles)
+                "prompt": f"{system_prompt}\n\nUser: {req.prompt}\n\nAnswer:",
                 "stream": False,
                 "options": {
                     "temperature": req.temperature,
@@ -70,15 +79,20 @@ async def generate(req: GenerateRequest):
                 r = await client.post("http://localhost:11434/api/generate", json=payload, timeout=60.0)
             r.raise_for_status()
             data = r.json()
-            return {"provider": "ollama", "model": MODEL_NAME, "response": data.get("response", "")}
+            return {
+                "provider": "ollama",
+                "model": MODEL_NAME,
+                "system_prompt": system_prompt,
+                "response": data.get("response", "")
+            }
 
         elif PROVIDER == "openai":
             if openai_client is None:
                 raise HTTPException(status_code=500, detail="OpenAI client not initialized")
-            messages = []
-            if req.system:
-                messages.append({"role": "system", "content": req.system})
-            messages.append({"role": "user", "content": req.prompt})
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": req.prompt},
+            ]
             chat = openai_client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=messages,
@@ -87,7 +101,12 @@ async def generate(req: GenerateRequest):
                 top_p=req.top_p,
             )
             text = chat.choices[0].message.content
-            return {"provider": "openai", "model": MODEL_NAME, "response": text}
+            return {
+                "provider": "openai",
+                "model": MODEL_NAME,
+                "system_prompt": system_prompt,
+                "response": text
+            }
 
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported provider: {PROVIDER}")
@@ -98,5 +117,4 @@ async def generate(req: GenerateRequest):
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 if __name__ == "__main__":
-    # Using the in-process app reference avoids module import-path issues
     uvicorn.run(app, host="0.0.0.0", port=8000)
