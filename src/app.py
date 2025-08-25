@@ -49,6 +49,20 @@ ERROR_COUNT = Counter(
     ["endpoint", "method", "error_type"]
 )
 
+# Add token + cost metrics
+TOKENS_TOTAL = Counter(
+    "llm_tokens_total",
+    "Total tokens processed by the LLM",
+    ["provider", "model"]
+)
+
+COST_TOTAL = Counter(
+    "llm_cost_usd_total",
+    "Estimated total cost (USD) of LLM calls",
+    ["provider", "model"]
+)
+
+OLLAMA_URL = "http://host.docker.internal:11434"
 
 # Lazy import OpenAI client only if needed
 openai_client = None
@@ -73,7 +87,7 @@ async def health():
     if PROVIDER == "ollama":
         try:
             async with httpx.AsyncClient() as client:
-                r = await client.get("http://localhost:11434/api/tags", timeout=3.0)
+                r = await client.get(f"{OLLAMA_URL}/api/tags", timeout=3.0)
             ok = r.status_code == 200
         except Exception:
             ok = False
@@ -112,16 +126,31 @@ async def generate(req: GenerateRequest):
                 }
             }
             async with httpx.AsyncClient() as client:
-                r = await client.post("http://localhost:11434/api/generate", json=payload, timeout=60.0)
+                r = await client.post(f"{OLLAMA_URL}/api/generate", json=payload, timeout=60.0)
             r.raise_for_status()
             data = r.json()
             duration = time.time() - start_time
             REQUEST_COUNT.labels(endpoint=endpoint, method=method, status=status).inc()
             REQUEST_LATENCY.labels(endpoint=endpoint, method=method).observe(duration)
+            # Extract token usage
+            prompt_tokens = data.get("prompt_eval_count", 0)
+            completion_tokens = data.get("eval_count", 0)
+            total_tokens = prompt_tokens + completion_tokens
+
+            # For Ollama: no official $ pricing — assume $0.000001 per token (≈ GPT-3.5 pricing) for demo
+            cost_estimate = total_tokens * 0.000001
+
+            # Record metrics
+            TOKENS_TOTAL.labels(provider="ollama", model=MODEL_NAME).inc(total_tokens)
+            COST_TOTAL.labels(provider="ollama", model=MODEL_NAME).inc(cost_estimate)
             return {
                 "provider": "ollama",
                 "model": MODEL_NAME,
                 "system_prompt": system_prompt,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
+                "cost_estimate_usd": round(cost_estimate, 6),
                 "response": data.get("response", "")
             }
 
