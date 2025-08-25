@@ -1,9 +1,12 @@
 # src/app.py
 import os
 from typing import Optional
+import time
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 import uvicorn
 import httpx
 from dotenv import load_dotenv
@@ -22,6 +25,30 @@ DEFAULT_SYSTEM_PROMPT = os.getenv(
     "not Red-Amber-Green project tracking. "
     "Keep answers concise, accurate, and technical."
 )
+
+import time
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
+
+# --- Prometheus metrics ---
+REQUEST_COUNT = Counter(
+    "llm_requests_total",
+    "Total number of requests",
+    ["endpoint", "method", "status"]
+)
+
+REQUEST_LATENCY = Histogram(
+    "llm_request_latency_seconds",
+    "Request latency in seconds",
+    ["endpoint", "method"]
+)
+
+ERROR_COUNT = Counter(
+    "llm_errors_total",
+    "Total number of errors",
+    ["endpoint", "method", "error_type"]
+)
+
 
 # Lazy import OpenAI client only if needed
 openai_client = None
@@ -57,10 +84,19 @@ async def health():
 
     return {"status": "unknown provider", "provider": PROVIDER}
 
+# --- Expose metrics endpoint ---
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
 @app.post("/generate")
 async def generate(req: GenerateRequest):
     # Resolve system prompt (env default → request override)
     system_prompt = req.system or DEFAULT_SYSTEM_PROMPT
+    start_time = time.time()
+    endpoint = "/generate"
+    method = "POST"
+    status = "200"
 
     try:
         if PROVIDER == "ollama":
@@ -79,6 +115,9 @@ async def generate(req: GenerateRequest):
                 r = await client.post("http://localhost:11434/api/generate", json=payload, timeout=60.0)
             r.raise_for_status()
             data = r.json()
+            duration = time.time() - start_time
+            REQUEST_COUNT.labels(endpoint=endpoint, method=method, status=status).inc()
+            REQUEST_LATENCY.labels(endpoint=endpoint, method=method).observe(duration)
             return {
                 "provider": "ollama",
                 "model": MODEL_NAME,
@@ -101,6 +140,9 @@ async def generate(req: GenerateRequest):
                 top_p=req.top_p,
             )
             text = chat.choices[0].message.content
+            duration = time.time() - start_time
+            REQUEST_COUNT.labels(endpoint=endpoint, method=method, status=status).inc()
+            REQUEST_LATENCY.labels(endpoint=endpoint, method=method).observe(duration)
             return {
                 "provider": "openai",
                 "model": MODEL_NAME,
@@ -110,10 +152,17 @@ async def generate(req: GenerateRequest):
 
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported provider: {PROVIDER}")
-
+    
     except httpx.HTTPError as e:
+        status = "502"
+        ERROR_COUNT.labels(endpoint=endpoint, method=method, error_type="http").inc()
+        REQUEST_COUNT.labels(endpoint=endpoint, method=method, status=status).inc()
         raise HTTPException(status_code=502, detail=f"Upstream error: {str(e)}") from e
+
     except Exception as e:
+        status = "500"
+        ERROR_COUNT.labels(endpoint=endpoint, method=method, error_type="internal").inc()
+        REQUEST_COUNT.labels(endpoint=endpoint, method=method, status=status).inc()
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 if __name__ == "__main__":
