@@ -10,6 +10,7 @@ from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_
 import uvicorn
 import httpx
 from dotenv import load_dotenv
+from .agent import run_agent
 from .rag import ingest_documents, query_index
 from .metrics import REQUEST_COUNT, ERROR_COUNT, TOKENS_TOTAL, COST_TOTAL, REQUEST_LATENCY_BY_MODEL, RAG_QUERIES_TOTAL, RAG_RETRIEVED_DOCS, RAG_LATENCY
 
@@ -222,6 +223,15 @@ async def rag_query(req: RagQuery):
         "answer": answer,
         "sources": [r[0] for r in results]
     }
+
+class AgentQuery(BaseModel):
+    query: str
+
+@app.post("/agent")
+async def agent_query(req: AgentQuery):
+    async with httpx.AsyncClient() as client:
+        result = await run_agent(req.query, client, MODEL_NAME, OLLAMA_URL)
+    return result
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
