@@ -14,7 +14,7 @@ openai==1.40.6
 
 # Embeddings + RAG
 chromadb==0.5.5
-sentence-transformers==2.2.2
+sentence-transformers==3.0.1
 numpy==1.26.4
 
 # Optional: PDF/text parsing (future ingestion)
