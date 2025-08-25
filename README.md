@@ -132,20 +132,24 @@ python src/evals_agent.py
 
 ## 🔮 Roadmap
 ✅ Phase 1: Core Infra
+
 	•	FastAPI service
 	•	LLM providers
 	•	Prometheus + Grafana
 
 ✅ Phase 2: RAG
+
 	•	Document ingestion & retrieval
 	•	RAG metrics + dashboards
 
 ✅ Phase 3: Agents
+
 	•	Agent loop (ReAct-style)
 	•	RAG + Calculator tools
 	•	Agent observability
 
 🔜 Phase 4: Multi-Agent Orchestration
+
 	•	Multi-agent collaboration (planner + worker agents)
 	•	Workflow orchestration (task decomposition, parallelization)
 	•	External connectors (databases, APIs, knowledge graphs)
