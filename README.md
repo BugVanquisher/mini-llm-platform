@@ -24,6 +24,7 @@ This project provides a FastAPI service that wraps **LLM providers** (e.g., Olla
 src/
 ├── app.py              # FastAPI app (endpoints, metrics, orchestration)
 ├── rag.py              # RAG pipeline (ingestion, retrieval)
+├── agent.py            # Agent loop (tools + reasoning)
 ├── metrics.py          # Prometheus metrics definitions
 ├── inference.py        # Provider abstractions (Ollama, OpenAI, etc.)
 ├── evals_rag.py        # Simple regression tests for RAG
@@ -84,7 +85,12 @@ curl -X POST "http://localhost:8000/rag/query" \
   -H "Content-Type: application/json" \
   -d '{"query": "What is Retrieval-Augmented Generation?", "top_k": 3}'
 ```
-
+Ask the agent
+```
+curl -X POST "http://localhost:8000/agent" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is 25 * 4 + 10?"}'
+```
 ⸻
 
 ## 📊 Monitoring
@@ -100,6 +106,7 @@ Key metrics:
 	•	llm_cost_usd_total
 	•	rag_queries_total
 	•	rag_query_latency_seconds
+    •	agent_queries_total, agent_tool_invocations_total, agent_latency_seconds
 	•	Grafana dashboards available at http://localhost:3000
 
 ⸻
@@ -116,14 +123,33 @@ This will:
 	•	Check grounding against retrieved docs
 	•	Report pass/fail rates
 
+Agent evals (coming soon):
+```
+python src/evals_agent.py
+```
+
 ⸻
 
 ## 🔮 Roadmap
-	•	Add OpenAI + Anthropic providers
-	•	Expand RAG ingestion to support PDFs, Markdown, and web pages
-	•	Implement simple ReAct agent loop with tool use
-	•	CI pipeline with regression evals
+✅ Phase 1: Core Infra
+	•	FastAPI service
+	•	LLM providers
+	•	Prometheus + Grafana
 
+✅ Phase 2: RAG
+	•	Document ingestion & retrieval
+	•	RAG metrics + dashboards
+
+✅ Phase 3: Agents
+	•	Agent loop (ReAct-style)
+	•	RAG + Calculator tools
+	•	Agent observability
+
+🔜 Phase 4: Multi-Agent Orchestration
+	•	Multi-agent collaboration (planner + worker agents)
+	•	Workflow orchestration (task decomposition, parallelization)
+	•	External connectors (databases, APIs, knowledge graphs)
+	•	Agent evaluation & safety guardrails
 ⸻
 
 ## 📜 License
