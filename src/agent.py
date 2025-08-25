@@ -1,7 +1,7 @@
 # src/agent.py
 import re
 from typing import Dict, Any
-from rag import query_index
+from .rag import query_index
 
 # Define available tools
 def tool_rag(query: str):

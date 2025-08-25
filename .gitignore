@@ -3,3 +3,4 @@ data/chroma/chroma.sqlite3
 src/__pycache__/metrics.cpython-311.pyc
 /src/__pycache__
 /data/chroma
+/src/__pycache__

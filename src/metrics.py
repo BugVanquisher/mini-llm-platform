@@ -53,3 +53,21 @@ RAG_LATENCY = Histogram(
     "rag_query_latency_seconds",
     "Latency of RAG queries in seconds"
 )
+
+# --- Agent metrics ---
+agent_queries_total = Counter(
+    "agent_queries_total",
+    "Total number of agent queries"
+)
+
+agent_tool_invocations_total = Counter(
+    "agent_tool_invocations_total",
+    "Total number of tool invocations by the agent",
+    ["tool"]  # label: rag, calc, etc.
+)
+
+agent_latency_seconds = Histogram(
+    "agent_latency_seconds",
+    "Latency of agent queries in seconds",
+    buckets=[0.1, 0.25, 0.5, 1, 2, 5, 10]
+)
