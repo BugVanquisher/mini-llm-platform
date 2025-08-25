@@ -2,6 +2,8 @@
 import re
 from typing import Dict, Any
 from .rag import query_index
+from .metrics import agent_queries_total, agent_tool_invocations_total, agent_latency_seconds
+import time
 
 # Define available tools
 def tool_rag(query: str):
@@ -50,6 +52,11 @@ Once you have enough information:
 Final Answer: <your answer>
 """
 
+    start = time.time()
+    agent_queries_total.inc()
+
+    system_prompt = """You are an intelligent assistant..."""
+
     history = []
     while True:
         prompt = system_prompt + "\n\n" + "\n".join(history) + f"\nUser: {query}"
@@ -62,6 +69,20 @@ Final Answer: <your answer>
         r.raise_for_status()
         response = r.json().get("response", "").strip()
         history.append(response)
+
+        # If Final Answer is reached
+        if "Final Answer:" in response:
+            latency = time.time() - start
+            agent_latency_seconds.observe(latency)
+            final = response.split("Final Answer:")[-1].strip()
+            return {"query": query, "trace": history, "answer": final}
+
+        # Tool invocation
+        tool, arg = parse_action(response)
+        if tool in TOOLS:
+            agent_tool_invocations_total.labels(tool=tool).inc()
+            tool_output = TOOLS[tool](arg)
+            history.append(f"Observation: {tool_output}")
 
         # Check if model gave Final Answer
         if "Final Answer:" in response:
