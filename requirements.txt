@@ -10,5 +10,4 @@ python-dotenv==1.0.1
 # Optional: use OpenAI as an alternate provider
 openai==1.40.6
 
-# (We'll add prometheus-client and deepeval later)
 prometheus-client==0.20.0
