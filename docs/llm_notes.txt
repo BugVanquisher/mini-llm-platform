@@ -1,0 +1,3 @@
+Retrieval-Augmented Generation (RAG) is a technique that combines a retriever and a generator. 
+The retriever fetches relevant context documents, and the generator produces an answer grounded in that context. 
+This improves factual accuracy and helps LLMs access external knowledge.
