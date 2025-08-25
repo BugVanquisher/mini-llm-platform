@@ -20,7 +20,7 @@ This project provides a FastAPI service that wraps **LLM providers** (e.g., Olla
 ---
 
 ## 🏗 Project Structure
-
+```
 src/
 ├── app.py              # FastAPI app (endpoints, metrics, orchestration)
 ├── rag.py              # RAG pipeline (ingestion, retrieval)
@@ -31,7 +31,7 @@ configs/
 ├── model_config.yaml   # Config for provider, model name, system prompts
 docker-compose.yml      # Services: API, Prometheus, Grafana
 requirements.txt        # Python dependencies
-
+```
 ---
 
 ## 🚀 Getting Started
