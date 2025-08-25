@@ -22,3 +22,4 @@ PyPDF2==3.0.1
 unstructured==0.15.8
 
 # Ollama client is just REST calls, no special library needed
+posthog==2.4.2
