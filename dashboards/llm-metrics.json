@@ -1,7 +1,5 @@
 {
-  "annotations": {
-    "list": []
-  },
+  "annotations": { "list": [] },
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
@@ -10,16 +8,8 @@
   "panels": [
     {
       "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "id": 1,
-      "options": {
-        "legend": { "displayMode": "table", "placement": "bottom" },
-        "tooltip": { "mode": "single" }
-      },
       "targets": [
         {
           "expr": "rate(llm_requests_total[1m])",
@@ -27,30 +17,25 @@
           "refId": "A"
         }
       ],
-      "title": "Request Rate",
+      "title": "LLM Request Rate",
       "type": "timeseries"
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "id": 2,
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, rate(llm_request_latency_seconds_bucket[5m]))",
+          "expr": "histogram_quantile(0.95, sum(rate(llm_request_latency_seconds_bucket[5m])) by (le))",
           "legendFormat": "p95 latency",
           "refId": "A"
         }
       ],
-      "title": "Latency (p95)",
+      "title": "LLM Latency (p95)",
       "type": "timeseries"
     },
     {
       "datasource": "Prometheus",
-      "fieldConfig": { "defaults": {}, "overrides": [] },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "id": 3,
       "targets": [
@@ -60,18 +45,88 @@
           "refId": "A"
         }
       ],
-      "title": "Error Count",
+      "title": "LLM Error Count",
       "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(rag_query_latency_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95 latency",
+          "refId": "A"
+        }
+      ],
+      "title": "RAG Query Latency (p95)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 16 },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "sum(rag_queries_total)",
+          "legendFormat": "Total RAG queries",
+          "refId": "A"
+        }
+      ],
+      "title": "RAG Query Count",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(agent_latency_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95 latency",
+          "refId": "A"
+        }
+      ],
+      "title": "Agent Query Latency (p95)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 24 },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "sum(agent_queries_total)",
+          "legendFormat": "Total agent queries",
+          "refId": "A"
+        }
+      ],
+      "title": "Agent Query Count",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 24 },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "sum by (tool) (agent_tool_invocations_total)",
+          "legendFormat": "{{tool}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Agent Tool Usage",
+      "type": "piechart"
     }
   ],
   "schemaVersion": 37,
   "style": "dark",
-  "tags": ["llm", "prometheus"],
+  "tags": ["llm", "prometheus", "rag", "agent"],
   "templating": { "list": [] },
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
   "timezone": "",
-  "title": "LLM Service Metrics",
-  "uid": "llm-metrics",
+  "title": "LLM + RAG + Agent Metrics",
+  "uid": "llm-rag-agent-metrics",
   "version": 1
 }
