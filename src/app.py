@@ -62,6 +62,12 @@ COST_TOTAL = Counter(
     ["provider", "model"]
 )
 
+REQUEST_LATENCY_BY_MODEL = Histogram(
+    "llm_request_latency_seconds",
+    "Request latency in seconds, broken down by provider/model",
+    ["provider", "model", "endpoint"]
+)
+
 OLLAMA_URL = "http://host.docker.internal:11434"
 
 # Lazy import OpenAI client only if needed
@@ -143,10 +149,19 @@ async def generate(req: GenerateRequest):
             # Record metrics
             TOKENS_TOTAL.labels(provider="ollama", model=MODEL_NAME).inc(total_tokens)
             COST_TOTAL.labels(provider="ollama", model=MODEL_NAME).inc(cost_estimate)
+
+            # After getting response
+            duration = time.time() - start_time
+            REQUEST_LATENCY_BY_MODEL.labels(
+                provider="ollama",
+                model=MODEL_NAME,
+                endpoint=endpoint
+            ).observe(duration)
+
             return {
                 "provider": "ollama",
                 "model": MODEL_NAME,
-                "system_prompt": system_prompt,
+                "latency_seconds": round(duration, 3),
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "total_tokens": total_tokens,
@@ -172,11 +187,18 @@ async def generate(req: GenerateRequest):
             duration = time.time() - start_time
             REQUEST_COUNT.labels(endpoint=endpoint, method=method, status=status).inc()
             REQUEST_LATENCY.labels(endpoint=endpoint, method=method).observe(duration)
+            duration = time.time() - start_time
+            REQUEST_LATENCY_BY_MODEL.labels(
+                provider="openai",
+                model=MODEL_NAME,
+                endpoint=endpoint
+            ).observe(duration)
+
             return {
                 "provider": "openai",
                 "model": MODEL_NAME,
-                "system_prompt": system_prompt,
-                "response": text
+                "latency_seconds": round(duration, 3),
+                "response": text,
             }
 
         else:
