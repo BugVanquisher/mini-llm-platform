@@ -13,7 +13,7 @@ deepeval==0.20.54
 openai==1.40.6
 
 # Embeddings + RAG
-faiss-cpu==1.7.4
+chromadb==0.5.5
 sentence-transformers==2.2.2
 numpy==1.26.4
 
