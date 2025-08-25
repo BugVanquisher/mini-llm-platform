@@ -11,7 +11,7 @@ import uvicorn
 import httpx
 from dotenv import load_dotenv
 from .rag import ingest_documents, query_index
-from .metrics import REQUEST_COUNT, ERROR_COUNT, TOKENS_TOTAL, COST_TOTAL, REQUEST_LATENCY_BY_MODEL
+from .metrics import REQUEST_COUNT, ERROR_COUNT, TOKENS_TOTAL, COST_TOTAL, REQUEST_LATENCY_BY_MODEL, RAG_QUERIES_TOTAL, RAG_RETRIEVED_DOCS, RAG_LATENCY
 
 load_dotenv()
 
@@ -196,14 +196,22 @@ class RagQuery(BaseModel):
 
 @app.post("/rag/query")
 async def rag_query(req: RagQuery):
+    start_time = time.time()
     results = query_index(req.query, req.top_k)
+
+    # Prometheus metrics
+    RAG_QUERIES_TOTAL.inc()
+    RAG_RETRIEVED_DOCS.observe(len(results))
+    RAG_LATENCY.observe(time.time() - start_time)
+
+    # Build context for LLM
     context = "\n\n".join([r[0] for r in results])
-    # Call LLM (Ollama) with context
     payload = {
         "model": MODEL_NAME,
         "prompt": f"Context:\n{context}\n\nQuestion: {req.query}\nAnswer:",
         "stream": False
     }
+
     async with httpx.AsyncClient() as client:
         r = await client.post(f"{OLLAMA_URL}/api/generate", json=payload, timeout=60.0)
     r.raise_for_status()
