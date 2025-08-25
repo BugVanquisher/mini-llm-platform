@@ -1,6 +1,6 @@
 # src/app.py
 import os
-from typing import Optional
+from typing import List, Optional
 import time
 
 from fastapi import FastAPI, HTTPException, UploadFile
