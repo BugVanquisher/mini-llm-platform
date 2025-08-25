@@ -1,2 +1,3 @@
 src/__pycache__/app.cpython-311.pyc
 data/chroma/chroma.sqlite3
+src/__pycache__/metrics.cpython-311.pyc

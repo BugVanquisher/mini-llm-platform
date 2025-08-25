@@ -37,3 +37,7 @@ REQUEST_LATENCY_BY_MODEL = Histogram(
     "Request latency in seconds, broken down by provider/model",
     ["provider", "model", "endpoint"]
 )
+
+RAG_QUERIES_TOTAL = Counter("rag_queries_total", "Number of RAG queries")
+RAG_RETRIEVED_DOCS = Histogram("rag_retrieved_docs", "Number of docs retrieved", ["query"])
+RAG_LATENCY = Histogram("rag_query_latency_seconds", "Latency of RAG queries")
