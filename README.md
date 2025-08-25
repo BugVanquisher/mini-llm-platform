@@ -53,12 +53,12 @@ pip install -r requirements.txt
 ```
 docker-compose up --build
 ```
-
+```
 This will launch:
 	•	mini-llm-app (FastAPI LLM service at http://localhost:8000)
 	•	Prometheus (metrics at http://localhost:9090)
 	•	Grafana (dashboards at http://localhost:3000, default creds admin/admin)
-
+```
 ⸻
 
 ## 🔧 Usage
