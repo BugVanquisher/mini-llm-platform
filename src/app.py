@@ -29,12 +29,6 @@ DEFAULT_SYSTEM_PROMPT = os.getenv(
     "Keep answers concise, accurate, and technical."
 )
 
-import time
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-from fastapi.responses import Response
-
-
-
 OLLAMA_URL = "http://host.docker.internal:11434"
 
 # Lazy import OpenAI client only if needed
@@ -78,7 +72,6 @@ async def metrics():
 
 @app.post("/generate")
 async def generate(req: GenerateRequest):
-    # Resolve system prompt (env default → request override)
     system_prompt = req.system or DEFAULT_SYSTEM_PROMPT
     start_time = time.time()
     endpoint = "/generate"
@@ -89,7 +82,6 @@ async def generate(req: GenerateRequest):
         if PROVIDER == "ollama":
             payload = {
                 "model": MODEL_NAME,
-                # Concatenate system + user prompt (Ollama doesn’t have chat roles)
                 "prompt": f"{system_prompt}\n\nUser: {req.prompt}\n\nAnswer:",
                 "stream": False,
                 "options": {
@@ -102,28 +94,14 @@ async def generate(req: GenerateRequest):
                 r = await client.post(f"{OLLAMA_URL}/api/generate", json=payload, timeout=60.0)
             r.raise_for_status()
             data = r.json()
-            duration = time.time() - start_time
-            REQUEST_COUNT.labels(endpoint=endpoint, method=method, status=status).inc()
-            # REQUEST_LATENCY.labels(endpoint=endpoint, method=method).observe(duration)
-            # Extract token usage
+
             prompt_tokens = data.get("prompt_eval_count", 0)
             completion_tokens = data.get("eval_count", 0)
             total_tokens = prompt_tokens + completion_tokens
+            cost_estimate = total_tokens * 0.000001  # fake cost
 
-            # For Ollama: no official $ pricing — assume $0.000001 per token (≈ GPT-3.5 pricing) for demo
-            cost_estimate = total_tokens * 0.000001
-
-            # Record metrics
             TOKENS_TOTAL.labels(provider="ollama", model=MODEL_NAME).inc(total_tokens)
             COST_TOTAL.labels(provider="ollama", model=MODEL_NAME).inc(cost_estimate)
-
-            # After getting response
-            duration = time.time() - start_time
-            REQUEST_LATENCY_BY_MODEL.labels(
-                provider="ollama",
-                model=MODEL_NAME,
-                endpoint=endpoint
-            ).observe(duration)
 
             return {
                 "provider": "ollama",
@@ -132,7 +110,7 @@ async def generate(req: GenerateRequest):
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "total_tokens": total_tokens,
-                "latency_seconds": round(duration, 3),
+                "latency_seconds": round(time.time() - start_time, 3),
                 "cost_estimate_usd": round(cost_estimate, 6),
                 "response": data.get("response", "")
             }
@@ -152,9 +130,6 @@ async def generate(req: GenerateRequest):
                 top_p=req.top_p,
             )
             text = chat.choices[0].message.content
-            # duration = time.time() - start_time
-            # REQUEST_COUNT.labels(endpoint=endpoint, method=method, status=status).inc()
-            # REQUEST_LATENCY.labels(endpoint=endpoint, method=method).observe(duration)
             return {
                 "provider": "openai",
                 "model": MODEL_NAME,
@@ -164,18 +139,20 @@ async def generate(req: GenerateRequest):
 
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported provider: {PROVIDER}")
-    
+
     except httpx.HTTPError as e:
         status = "502"
         ERROR_COUNT.labels(endpoint=endpoint, method=method, error_type="http").inc()
-        REQUEST_COUNT.labels(endpoint=endpoint, method=method, status=status).inc()
         raise HTTPException(status_code=502, detail=f"Upstream error: {str(e)}") from e
 
     except Exception as e:
         status = "500"
         ERROR_COUNT.labels(endpoint=endpoint, method=method, error_type="internal").inc()
-        REQUEST_COUNT.labels(endpoint=endpoint, method=method, status=status).inc()
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+    finally:
+        REQUEST_COUNT.labels(endpoint=endpoint, method=method, status=status).inc()
+        REQUEST_LATENCY_BY_MODEL.labels(provider=PROVIDER, model=MODEL_NAME, endpoint=endpoint).observe(time.time() - start_time)
     
 @app.post("/rag/ingest")
 async def rag_ingest(files: List[UploadFile]):
