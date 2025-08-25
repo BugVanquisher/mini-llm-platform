@@ -10,7 +10,7 @@ from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_
 import uvicorn
 import httpx
 from dotenv import load_dotenv
-from rag import ingest_documents, query_index
+from .rag import ingest_documents, query_index
 from .metrics import REQUEST_COUNT, ERROR_COUNT, TOKENS_TOTAL, COST_TOTAL, REQUEST_LATENCY_BY_MODEL
 
 load_dotenv()
