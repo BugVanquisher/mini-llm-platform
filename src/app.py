@@ -3,13 +3,14 @@ import os
 from typing import Optional
 import time
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 import uvicorn
 import httpx
 from dotenv import load_dotenv
+from rag import ingest_documents, query_index
 from .metrics import REQUEST_COUNT, ERROR_COUNT, TOKENS_TOTAL, COST_TOTAL, REQUEST_LATENCY_BY_MODEL
 
 load_dotenv()
@@ -174,6 +175,45 @@ async def generate(req: GenerateRequest):
         ERROR_COUNT.labels(endpoint=endpoint, method=method, error_type="internal").inc()
         REQUEST_COUNT.labels(endpoint=endpoint, method=method, status=status).inc()
         raise HTTPException(status_code=500, detail=str(e)) from e
+    
+@app.post("/rag/ingest")
+async def rag_ingest(files: List[UploadFile]):
+    paths = []
+    for file in files:
+        content = await file.read()
+        path = f"data/{file.filename}"
+        with open(path, "wb") as f:
+            f.write(content)
+        paths.append(path)
+
+    ingest_documents(paths)
+    return {"status": "ok", "ingested_files": paths}
+
+
+class RagQuery(BaseModel):
+    query: str
+    top_k: int = 3
+
+@app.post("/rag/query")
+async def rag_query(req: RagQuery):
+    results = query_index(req.query, req.top_k)
+    context = "\n\n".join([r[0] for r in results])
+    # Call LLM (Ollama) with context
+    payload = {
+        "model": MODEL_NAME,
+        "prompt": f"Context:\n{context}\n\nQuestion: {req.query}\nAnswer:",
+        "stream": False
+    }
+    async with httpx.AsyncClient() as client:
+        r = await client.post(f"{OLLAMA_URL}/api/generate", json=payload, timeout=60.0)
+    r.raise_for_status()
+    answer = r.json().get("response", "")
+
+    return {
+        "query": req.query,
+        "answer": answer,
+        "sources": [r[0] for r in results]
+    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
