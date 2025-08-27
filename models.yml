@@ -1,0 +1,17 @@
+models:
+  - name: "llama2-7b"
+    provider: "ollama"
+    min_replicas: 0
+    max_replicas: 3
+    cost_per_token: 0.0000005
+    sla_latency_ms: 1500
+    scale_up_threshold: 10
+    scale_down_delay: 60
+  - name: "mistral-7b"
+    provider: "ollama"
+    min_replicas: 1
+    max_replicas: 5
+    cost_per_token: 0.0000007
+    sla_latency_ms: 1000
+    scale_up_threshold: 15
+    scale_down_delay: 90
