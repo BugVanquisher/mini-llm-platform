@@ -83,6 +83,8 @@ async def generate(req: GenerateRequest):
     status = "200"
 
     try:
+        # Enqueue request into scaler to simulate load
+        scaler.simulate_request(MODEL_NAME)
         if PROVIDER == "ollama":
             payload = {
                 "model": MODEL_NAME,
