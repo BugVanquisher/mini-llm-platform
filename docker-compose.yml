@@ -12,6 +12,7 @@ services:
       - ANONYMIZED_TELEMETRY=False
     volumes:
       - .:/app
+      - ./models.yml:/app/models.yml
     command: uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload
 
   prometheus:

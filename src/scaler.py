@@ -1,11 +1,9 @@
-
-
 import yaml
 import time
 from threading import Thread
 
 class ElasticScaler:
-    def __init__(self, config_path="../models.yml"):
+    def __init__(self, config_path="/app/models.yml"):
         with open(config_path, "r") as f:
             cfg = yaml.safe_load(f)
         self.models = {m["name"]: m for m in cfg["models"]}
