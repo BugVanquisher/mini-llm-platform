@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from .agent import run_agent
 from .rag import ingest_documents, query_index
 from .metrics import REQUEST_COUNT, ERROR_COUNT, TOKENS_TOTAL, COST_TOTAL, REQUEST_LATENCY_BY_MODEL, RAG_QUERIES_TOTAL, RAG_RETRIEVED_DOCS, RAG_LATENCY
+from .scaler import ElasticScaler
 
 load_dotenv()
 
@@ -41,6 +42,9 @@ if PROVIDER == "openai":
         raise RuntimeError("OpenAI provider selected but setup failed") from e
 
 app = FastAPI(title="Mini LLM Platform", version="0.2.0")
+
+scaler = ElasticScaler()
+scaler.start()
 
 class GenerateRequest(BaseModel):
     prompt: str
@@ -209,6 +213,10 @@ async def agent_query(req: AgentQuery):
     async with httpx.AsyncClient() as client:
         result = await run_agent(req.query, client, MODEL_NAME, OLLAMA_URL)
     return result
+
+@app.get("/status")
+async def status():
+    return {"models": scaler.get_status()}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
